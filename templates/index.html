@@ -81,20 +81,39 @@
         const pdfs = [
             {
                 nombre: "CNC",
-                url: "https://github.com/Cofla9/Equipos_MSC/blob/2c9ae45c76a9db931a2546925221faaaa212e738/CNC.pdf"
+                url: "https://github.com/Cofla9/Equipos_MSC/raw/af71bb1b1e22fc42527b740cc4c905686cdbf69f/Proyecto_CNC.pdf"
+            },
+            {
+                nombre: "Motor",
+                url: "https://github.com/tu_usuario/tu_repo/raw/main/equipos/Motor.pdf"
             }
             // Agrega más PDFs aquí: {nombre: "Nombre", url: "URL"}
         ];
 
         function buscarPDF() {
             const busqueda = document.getElementById("busqueda").value.trim().toLowerCase();
-            const resultado = pdfs.find(pdf => pdf.nombre.toLowerCase().includes(busqueda));
             const div = document.getElementById("resultadoPDF");
             div.innerHTML = "";
-            if (resultado) {
-                div.innerHTML = `
-                    <a class="pdf-link" href="${resultado.url}" target="_blank">${resultado.nombre} (PDF)</a><br>
-                    <iframe src="${resultado.url}" width="600" height="400"></iframe>
-                `;
+
+            let resultados;
+            if (busqueda === "") {
+                resultados = pdfs; // Muestra todos si no hay búsqueda
             } else {
-                div.textContent = "No se encontró ningún PDF con ese
+                resultados = pdfs.filter(pdf => pdf.nombre.toLowerCase().includes(busqueda));
+            }
+
+            if (resultados.length > 0) {
+                resultados.forEach(resultado => {
+                    div.innerHTML += `
+                        <a class="pdf-link" href="${resultado.url}" target="_blank">${resultado.nombre} (PDF)</a><br>
+                        <iframe src="${resultado.url}" width="600" height="400"></iframe>
+                        <br><br>
+                    `;
+                });
+            } else {
+                div.textContent = "No se encontró ningún PDF con ese nombre.";
+            }
+        }
+    </script>
+</body>
+</html>
