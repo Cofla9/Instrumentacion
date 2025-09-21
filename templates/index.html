@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Base de datos con Flask</title>
+</head>
+<body>
+    <h1>Gestión de Usuarios</h1>
+    <form action="/add_user" method="POST">
+        <input type="text" name="nombre" placeholder="Nombre" required>
+        <input type="email" name="email" placeholder="Correo" required>
+        <button type="submit">Agregar</button>
+    </form>
+
+    <h2>Usuarios registrados</h2>
+    <button onclick="cargarUsuarios()">Mostrar</button>
+    <ul id="lista"></ul>
+
+    <h2>Buscar PDF de Equipos</h2>
+    <input type="text" id="busqueda" placeholder="Nombre del PDF">
+    <button onclick="buscarPDF()">Buscar</button>
+    <div id="resultadoPDF"></div>
+
+    <script>
+        // Lista de PDFs (puedes agregar más)
+        const pdfs = [
+            {
+                nombre: "Proyecto_CNC",
+                url: "https://github.com/Cofla9/Equipos_MSC/raw/af71bb1b1e22fc42527b740cc4c905686cdbf69f/Proyecto_CNC.pdf"
+            }
+            // Agrega más PDFs aquí: {nombre: "Nombre", url: "URL"}
+        ];
+
+        function buscarPDF() {
+            const busqueda = document.getElementById("busqueda").value.trim().toLowerCase();
+            const resultado = pdfs.find(pdf => pdf.nombre.toLowerCase().includes(busqueda));
+            const div = document.getElementById("resultadoPDF");
+            div.innerHTML = "";
+            if (resultado) {
+                div.innerHTML = `
+                    <a href="${resultado.url}" target="_blank">${resultado.nombre} (PDF)</a><br>
+                    <iframe src="${resultado.url}" width="600" height="400"></iframe>
+                `;
+            } else {
+                div.textContent = "No se encontró ningún PDF con ese nombre.";
+            }
+        }
+
+        function cargarUsuarios() {
+            fetch("/get_users")
+                .then(res => res.json())
+                .then(data => {
+                    let lista = document.getElementById("lista");
+                    lista.innerHTML = "";
+                    data.forEach(u => {
+                        let li = document.createElement("li");
+                        li.textContent = u[1] + " - " + u[2];
+                        lista.appendChild(li);
+                    });
+                });
+        }
+    </script>
+</body>
+</html>
