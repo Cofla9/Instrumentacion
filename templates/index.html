@@ -91,13 +91,13 @@
     <div class="container">
         <h1>Información de Equipos</h1>
         <div class="search-block">
-            <input type="text" id="busqueda" placeholder="Nombre del PDF">
+            <input type="text" id="busqueda" placeholder="Nombre del PDF" autocomplete="off">
             <button onclick="buscarPDF()">Buscar</button>
         </div>
+        <ul id="sugerencias" style="list-style:none; padding:0; margin:0; text-align:center;"></ul>
         <div id="resultadoPDF"></div>
     </div>
     <script>
-        // Lista de PDFs (puedes agregar más)
         const pdfs = [
             {
                 nombre: "LIT-210001A",
@@ -107,10 +107,25 @@
                 nombre: "LIT-210117",
                 url: "https://drive.google.com/file/d/1cE47jnGjgyeeXrd7VWLprEBMxWQR7mV7/preview"
             }
-            // Agrega más PDFs aquí: {nombre: "Nombre", url: "URL"}
+            // Agrega más PDFs aquí
         ];
 
-        // Permite buscar al presionar Enter
+        // Sugerencias en tiempo real
+        document.getElementById("busqueda").addEventListener("input", function() {
+            const texto = this.value.trim().toLowerCase();
+            const sugerencias = document.getElementById("sugerencias");
+            sugerencias.innerHTML = "";
+            if (texto.length > 0) {
+                const resultados = pdfs.filter(pdf => pdf.nombre.toLowerCase().includes(texto));
+                resultados.forEach(pdf => {
+                    const li = document.createElement("li");
+                    li.innerHTML = `<button style="background:none;border:none;color:#2980b9;cursor:pointer;font-size:1em;" onclick="mostrarPDF('${pdf.nombre}')">${pdf.nombre}</button>`;
+                    sugerencias.appendChild(li);
+                });
+            }
+        });
+
+        // Buscar al presionar Enter
         document.getElementById("busqueda").addEventListener("keydown", function(event) {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -120,16 +135,24 @@
 
         function buscarPDF() {
             const busqueda = document.getElementById("busqueda").value.trim().toLowerCase();
+            mostrarResultados(busqueda);
+        }
+
+        function mostrarPDF(nombre) {
+            document.getElementById("busqueda").value = nombre;
+            mostrarResultados(nombre.toLowerCase());
+            document.getElementById("sugerencias").innerHTML = "";
+        }
+
+        function mostrarResultados(busqueda) {
             const div = document.getElementById("resultadoPDF");
             div.innerHTML = "";
-
             let resultados;
             if (busqueda === "") {
-                resultados = pdfs; // Muestra todos si no hay búsqueda
+                resultados = pdfs;
             } else {
                 resultados = pdfs.filter(pdf => pdf.nombre.toLowerCase().includes(busqueda));
             }
-
             if (resultados.length > 0) {
                 resultados.forEach(resultado => {
                     div.innerHTML += `
