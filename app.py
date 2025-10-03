@@ -1,6 +1,5 @@
 from flask import Flask, jsonify, render_template
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 app = Flask(__name__)
@@ -14,25 +13,33 @@ def index():
 
 @app.route('/pdfs')
 def get_pdfs():
-    # Autenticación OAuth (solo la primera vez, luego guarda el token)
-    flow = InstalledAppFlow.from_client_secrets_file(
-        'credentials.json', SCOPES)
-    creds = flow.run_local_server(port=0)
+    creds = service_account.Credentials.from_service_account_file(
+        'credentials.json', scopes=SCOPES)
     service = build('drive', 'v3', credentials=creds)
-    results = service.files().list(
-        q=f"'{FOLDER_ID}' in parents and mimeType='application/pdf'",
-        fields="files(id, name)").execute()
-    files = results.get('files', [])
     pdfs = []
-    for file in files:
-        pdfs.append({
-            'nombre': file['name'],
-            'url': f"https://drive.google.com/file/d/{file['id']}/preview"
-        })
+    page_token = None
+    while True:
+        results = service.files().list(
+            q=f"'{FOLDER_ID}' in parents and mimeType='application/pdf'",
+            fields="nextPageToken, files(id, name)",
+            pageSize=1000,
+            pageToken=page_token
+        ).execute()
+        files = results.get('files', [])
+        for file in files:
+            pdfs.append({
+                'nombre': file['name'],
+                'url': f"https://drive.google.com/file/d/{file['id']}/preview"
+            })
+        page_token = results.get('nextPageToken')
+        if not page_token:
+            break
     return jsonify(pdfs)
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+
 
 
 
