@@ -1,48 +1,35 @@
-from flask import Flask, request, render_template, jsonify
-import sqlite3
+from flask import Flask, jsonify, render_template
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 
 app = Flask(__name__)
 
-def init_db():
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
+SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+FOLDER_ID = 'TU_ID_DE_CARPETA'  # Reemplaza por el ID de tu carpeta
 
-init_db()
-
-@app.route("/")
+@app.route('/')
 def index():
-    return render_template("index.html")
+    return render_template('index.html')
 
-@app.route("/add_user", methods=["POST"])
-def add_user():
-    nombre = request.form["nombre"]
-    email = request.form["email"]
+@app.route('/pdfs')
+def get_pdfs():
+    # Autenticación OAuth (solo la primera vez, luego guarda el token)
+    flow = InstalledAppFlow.from_client_secrets_file(
+        'credentials.json', SCOPES)
+    creds = flow.run_local_server(port=0)
+    service = build('drive', 'v3', credentials=creds)
+    results = service.files().list(
+        q=f"'{FOLDER_ID}' in parents and mimeType='application/pdf'",
+        fields="files(id, name)").execute()
+    files = results.get('files', [])
+    pdfs = []
+    for file in files:
+        pdfs.append({
+            'nombre': file['name'],
+            'url': f"https://drive.google.com/file/d/{file['id']}/preview"
+        })
+    return jsonify(pdfs)
 
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO usuarios (nombre, email) VALUES (?, ?)", (nombre, email))
-    conn.commit()
-    conn.close()
-
-    return "Usuario agregado!"
-
-@app.route("/get_users", methods=["GET"])
-def get_users():
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM usuarios")
-    data = cursor.fetchall()
-    conn.close()
-    return jsonify(data)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
