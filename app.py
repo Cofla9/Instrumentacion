@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 app = Flask(__name__)
 
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
-FOLDER_ID = 'https://drive.google.com/drive/folders/1MCf_19KBkKV378JSF-cjn3CVf8iO8ze2?usp=sharing'  # Reemplaza por el ID de tu carpeta
+FOLDER_ID = '15XFBtrdqyOJ4r-djW3vfEpXfFDrk1XJk'  # Reemplaza por el ID de tu carpeta
 
 @app.route('/')
 def index():
@@ -33,4 +33,5 @@ def get_pdfs():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
