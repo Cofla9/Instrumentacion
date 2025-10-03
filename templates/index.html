@@ -98,17 +98,13 @@
         <div id="resultadoPDF"></div>
     </div>
     <script>
-        const pdfs = [
-            {
-                nombre: "LIT-210001A",
-                url: "https://drive.google.com/file/d/1k4wEaDRns34o8BMzE1HCFC4x-w6MOE4R/preview"
-            },
-            {
-                nombre: "LIT-210117",
-                url: "https://drive.google.com/file/d/1cE47jnGjgyeeXrd7VWLprEBMxWQR7mV7/preview"
-            }
-            // Agrega más PDFs aquí
-        ];
+        let pdfs = [];
+        fetch('/pdfs')
+            .then(response => response.json())
+            .then(data => {
+                pdfs = data;
+                // Aquí puedes llamar a mostrarResultados("") para mostrar todos al cargar
+            });
 
         // Sugerencias en tiempo real
         document.getElementById("busqueda").addEventListener("input", function() {
