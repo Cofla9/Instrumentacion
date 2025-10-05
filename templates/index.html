@@ -29,7 +29,7 @@
       flex-wrap: wrap;
       justify-content: center;
       gap: 10px;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
     }
     input, select, button {
       padding: 8px;
@@ -49,6 +49,26 @@
     }
     button:hover {
       background: #3498db;
+    }
+    ul#sugerencias {
+      list-style: none;
+      margin: 0 auto;
+      padding: 0;
+      text-align: center;
+      max-width: 600px;
+    }
+    ul#sugerencias li {
+      margin: 4px 0;
+    }
+    ul#sugerencias button {
+      background: none;
+      border: none;
+      color: #2980b9;
+      cursor: pointer;
+      font-size: 1em;
+    }
+    ul#sugerencias button:hover {
+      text-decoration: underline;
     }
     #resultadoPDF {
       margin-top: 25px;
@@ -99,6 +119,7 @@
       </select>
       <button onclick="buscar()">Buscar</button>
     </div>
+    <ul id="sugerencias"></ul>
     <div id="resultadoPDF">Cargando carpetas...</div>
   </div>
 
@@ -124,6 +145,11 @@
         });
 
         document.getElementById("resultadoPDF").textContent = "Listo para buscar PDFs.";
+
+        // Eventos
+        document.getElementById("busqueda").addEventListener("input", mostrarSugerencias);
+        document.getElementById("filtroCarpeta").addEventListener("change", mostrarSugerencias);
+
       } catch (err) {
         document.getElementById("resultadoPDF").textContent = "Error al cargar carpetas.";
         console.error(err);
@@ -131,10 +157,8 @@
     });
 
     async function cargarPDFsDeTodasLasCarpetas() {
-      // Si ya tenemos todos los PDFs cargados, no los volvemos a pedir
       if (allPDFs.length > 0) return allPDFs;
-
-      document.getElementById("resultadoPDF").textContent = "Cargando todos los PDFs, esto puede tardar...";
+      document.getElementById("resultadoPDF").textContent = "Cargando todos los PDFs...";
 
       const promesas = folders.map(async folder => {
         if (!cachePDFs[folder.id]) {
@@ -156,41 +180,63 @@
       const texto = document.getElementById("busqueda").value.trim().toLowerCase();
       const carpeta = document.getElementById("filtroCarpeta").value;
       const div = document.getElementById("resultadoPDF");
-
       div.textContent = "Buscando...";
 
       try {
-        let resultados = [];
-
-        if (carpeta) {
-          // Buscar en carpeta específica
-          if (!cachePDFs[carpeta]) {
-            const res = await fetch(`/pdfs?folder_id=${carpeta}`);
-            const pdfs = await res.json();
-            if (pdfs.error) throw new Error(pdfs.error);
-            cachePDFs[carpeta] = pdfs.map(p => ({
-              ...p,
-              carpeta: folders.find(f => f.id === carpeta)?.path || "Desconocida"
-            }));
-          }
-          resultados = cachePDFs[carpeta];
-        } else {
-          // Buscar en todas las carpetas (global)
-          resultados = await cargarPDFsDeTodasLasCarpetas();
-        }
-
-        // Aplicar búsqueda textual
+        let resultados = await obtenerPDFsSegunFiltro(carpeta);
         if (texto) {
-          resultados = resultados.filter(pdf =>
-            pdf.nombre.toLowerCase().includes(texto)
-          );
+          resultados = resultados.filter(pdf => pdf.nombre.toLowerCase().includes(texto));
         }
-
         mostrarResultados(resultados);
       } catch (err) {
         div.textContent = "Error al buscar PDFs.";
         console.error(err);
       }
+    }
+
+    async function obtenerPDFsSegunFiltro(carpeta) {
+      if (carpeta) {
+        if (!cachePDFs[carpeta]) {
+          const res = await fetch(`/pdfs?folder_id=${carpeta}`);
+          const pdfs = await res.json();
+          if (pdfs.error) throw new Error(pdfs.error);
+          cachePDFs[carpeta] = pdfs.map(p => ({
+            ...p,
+            carpeta: folders.find(f => f.id === carpeta)?.path || "Desconocida"
+          }));
+        }
+        return cachePDFs[carpeta];
+      } else {
+        return await cargarPDFsDeTodasLasCarpetas();
+      }
+    }
+
+    async function mostrarSugerencias() {
+      const texto = document.getElementById("busqueda").value.trim().toLowerCase();
+      const carpeta = document.getElementById("filtroCarpeta").value;
+      const ul = document.getElementById("sugerencias");
+      ul.innerHTML = "";
+
+      if (texto.length < 2) return;
+
+      try {
+        let resultados = await obtenerPDFsSegunFiltro(carpeta);
+        const filtrados = resultados.filter(pdf => pdf.nombre.toLowerCase().includes(texto)).slice(0, 10);
+
+        filtrados.forEach(pdf => {
+          const li = document.createElement("li");
+          li.innerHTML = `<button onclick="seleccionarSugerencia('${pdf.nombre}')">${pdf.nombre}</button>`;
+          ul.appendChild(li);
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function seleccionarSugerencia(nombre) {
+      document.getElementById("busqueda").value = nombre;
+      document.getElementById("sugerencias").innerHTML = "";
+      buscar();
     }
 
     function mostrarResultados(resultados) {
