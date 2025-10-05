@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Información de Equipos</title>
-    <!-- Meta viewport para móviles -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
@@ -32,7 +31,7 @@
             justify-content: center;
             flex-wrap: wrap;
         }
-        input[type="text"] {
+        input[type="text"], select {
             padding: 8px;
             border-radius: 4px;
             border: 1px solid #ccc;
@@ -53,14 +52,6 @@
         }
         button:hover {
             background: #3498db;
-        }
-        .search-block select {
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            width: 100%;
-            max-width: 250px;
-            box-sizing: border-box;
         }
         #resultadoPDF {
             margin-top: 24px;
@@ -83,15 +74,9 @@
         .pdf-link:hover {
             text-decoration: underline;
         }
-        /* Responsivo para pantallas pequeñas */
         @media (max-width: 600px) {
-            .container {
-                padding: 12px;
-                margin: 10px;
-            }
-            iframe {
-                height: 250px;
-            }
+            .container { padding: 12px; margin: 10px; }
+            iframe { height: 250px; }
         }
     </style>
 </head>
@@ -103,33 +88,26 @@
             <select id="filtroCarpeta"></select>
             <button onclick="filtrarResultados()">Buscar</button>
         </div>
-        <ul id="sugerencias" style="list-style:none; padding:0; margin:0; text-align:center;"></ul>
         <div id="resultadoPDF"></div>
     </div>
+
     <script>
-        let pdfs = [];
         let folders = [];
 
-        document.addEventListener('DOMContentLoaded', () => {
-            fetch('/pdfs')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        document.getElementById("resultadoPDF").textContent = data.error;
-                        return;
-                    }
-                    pdfs = data.pdfs || [];
-                    folders = data.folders || [];
-                    populateFolderFilter();
-                    filtrarResultados(); // Opcional: Mostrar todos los PDFs al inicio
-                });
+        document.addEventListener('DOMContentLoaded', async () => {
+            const res = await fetch('/folders');
+            const data = await res.json();
+            if (data.error) {
+                document.getElementById("resultadoPDF").textContent = data.error;
+                return;
+            }
+            folders = data;
+            populateFolderFilter();
 
-            document.getElementById("busqueda").addEventListener("input", handleLiveSearch);
             document.getElementById("filtroCarpeta").addEventListener("change", filtrarResultados);
-
-            document.getElementById("busqueda").addEventListener("keydown", function(event) {
-                if (event.key === "Enter") {
-                    event.preventDefault();
+            document.getElementById("busqueda").addEventListener("keydown", e => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
                     filtrarResultados();
                 }
             });
@@ -137,54 +115,39 @@
 
         function populateFolderFilter() {
             const folderFilter = document.getElementById("filtroCarpeta");
-            folderFilter.innerHTML = '<option value="">Todas las carpetas</option>';
+            folderFilter.innerHTML = '<option value="">Seleccione una carpeta</option>';
             folders.forEach(folder => {
                 const option = document.createElement("option");
-                option.value = folder;
-                option.textContent = folder;
+                option.value = folder.id;
+                option.textContent = folder.path;
                 folderFilter.appendChild(option);
             });
         }
 
-        function handleLiveSearch() {
-            const texto = document.getElementById("busqueda").value.trim().toLowerCase();
-            const carpeta = document.getElementById("filtroCarpeta").value;
-            const sugerencias = document.getElementById("sugerencias");
-            sugerencias.innerHTML = "";
-
-            if (texto.length > 0) {
-                const resultados = pdfs.filter(pdf => {
-                    const coincideCarpeta = !carpeta || pdf.carpeta === carpeta || pdf.carpeta.startsWith(carpeta + '/');
-                    const coincideNombre = pdf.nombre.toLowerCase().includes(texto);
-                    return coincideCarpeta && coincideNombre;
-                });
-
-                resultados.forEach(pdf => {
-                    const li = document.createElement("li");
-                    li.innerHTML = `<button style="background:none;border:none;color:#2980b9;cursor:pointer;font-size:1em;" onclick="seleccionarSugerencia('${pdf.nombre}')">${pdf.nombre}</button>`;
-                    sugerencias.appendChild(li);
-                });
-            }
-        }
-
-        function seleccionarSugerencia(nombre) {
-            document.getElementById("busqueda").value = nombre;
-            document.getElementById("sugerencias").innerHTML = "";
-            filtrarResultados();
-        }
-
-        function filtrarResultados() {
+        async function filtrarResultados() {
+            const folderId = document.getElementById("filtroCarpeta").value;
             const busqueda = document.getElementById("busqueda").value.trim().toLowerCase();
-            const carpeta = document.getElementById("filtroCarpeta").value;
-            document.getElementById("sugerencias").innerHTML = "";
+            const div = document.getElementById("resultadoPDF");
+            div.innerHTML = "Cargando...";
 
-            const resultados = pdfs.filter(pdf => {
-                const coincideCarpeta = !carpeta || pdf.carpeta === carpeta || pdf.carpeta.startsWith(carpeta + '/');
-                const coincideNombre = !busqueda || pdf.nombre.toLowerCase().includes(busqueda);
-                return coincideCarpeta && coincideNombre;
-            });
+            if (!folderId) {
+                div.innerHTML = "Por favor selecciona una carpeta.";
+                return;
+            }
 
-            mostrarResultados(resultados);
+            const res = await fetch(`/pdfs?folder_id=${folderId}`);
+            const pdfs = await res.json();
+
+            if (pdfs.error) {
+                div.textContent = pdfs.error;
+                return;
+            }
+
+            const filtrados = pdfs.filter(pdf =>
+                !busqueda || pdf.nombre.toLowerCase().includes(busqueda)
+            );
+
+            mostrarResultados(filtrados);
         }
 
         function mostrarResultados(resultados) {
@@ -192,16 +155,15 @@
             div.innerHTML = "";
 
             if (resultados.length > 0) {
-                resultados.forEach(resultado => {
+                resultados.forEach(pdf => {
                     div.innerHTML += `
-                        <a class="pdf-link" href="${resultado.url}" target="_blank">${resultado.nombre} (PDF)</a><br>
-                        <small>Carpeta: ${resultado.carpeta || 'Raíz'}</small><br>
-                        <iframe src="${resultado.url}" width="100%" height="400"></iframe>
+                        <a class="pdf-link" href="${pdf.url}" target="_blank">${pdf.nombre}</a><br>
+                        <iframe src="${pdf.url}" width="100%" height="400"></iframe>
                         <br><br>
                     `;
                 });
             } else {
-                div.textContent = "No se encontró ningún PDF con esos criterios.";
+                div.textContent = "No se encontraron PDFs.";
             }
         }
     </script>
