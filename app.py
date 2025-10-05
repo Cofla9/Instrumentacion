@@ -35,10 +35,12 @@ def get_pdfs():
                 for item in items:
                     if item['mimeType'] == 'application/vnd.google-apps.folder':
                         folder_name = item['name']
-                        all_folders.add(folder_name)
                         new_path = f"{current_path}/{folder_name}" if current_path else folder_name
+                        all_folders.add(new_path)
                         find_pdfs_recursively(item['id'], new_path)
                     else:
+                        if current_path:
+                            all_folders.add(current_path)
                         all_pdfs.append({
                             'nombre': item['name'],
                             'url': f"https://drive.google.com/file/d/{item['id']}/preview",
@@ -63,5 +65,7 @@ def get_pdfs():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+
 
 
