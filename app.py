@@ -19,10 +19,11 @@ def get_pdfs():
         service = build('drive', 'v3', credentials=creds)
         
         all_pdfs = []
-        def find_pdfs_recursively(folder_id):
+        all_folders = set()
+
+        def find_pdfs_recursively(folder_id, current_path=""):
             page_token = None
             while True:
-                # Query for both folders and PDF files within the current folder_id
                 results = service.files().list(
                     q=f"'{folder_id}' in parents and (mimeType='application/pdf' or mimeType='application/vnd.google-apps.folder')",
                     fields="nextPageToken, files(id, name, mimeType)",
@@ -33,13 +34,15 @@ def get_pdfs():
                 items = results.get('files', [])
                 for item in items:
                     if item['mimeType'] == 'application/vnd.google-apps.folder':
-                        # If it's a folder, recurse into it
-                        find_pdfs_recursively(item['id'])
+                        folder_name = item['name']
+                        all_folders.add(folder_name)
+                        new_path = f"{current_path}/{folder_name}" if current_path else folder_name
+                        find_pdfs_recursively(item['id'], new_path)
                     else:
-                        # If it's a PDF, add it to our list
                         all_pdfs.append({
                             'nombre': item['name'],
-                            'url': f"https://drive.google.com/file/d/{item['id']}/preview"
+                            'url': f"https://drive.google.com/file/d/{item['id']}/preview",
+                            'carpeta': current_path
                         })
                 
                 page_token = results.get('nextPageToken')
@@ -49,7 +52,7 @@ def get_pdfs():
         # Start the recursive search from the root folder
         find_pdfs_recursively(FOLDER_ID)
         
-        return jsonify(all_pdfs)
+        return jsonify({'pdfs': all_pdfs, 'folders': sorted(list(all_folders))})
 
     except FileNotFoundError:
         print("Error: credentials.json not found.")
@@ -60,6 +63,5 @@ def get_pdfs():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
 
 
