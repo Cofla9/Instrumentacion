@@ -38,8 +38,8 @@ iframe { width:100%; height:400px; border:1px solid #ccc; border-radius:4px; mar
 
 <script>
 let folders = [];
-let cachePDFs = {};  // guardará PDFs por folder_id
-let loadingFolders = {}; // evita requests duplicados
+let cachePDFs = {};        // PDFs cargados por folder_id
+let loadingFolders = {};   // evita fetch duplicados
 
 document.addEventListener("DOMContentLoaded", async () => {
   try {
@@ -52,14 +52,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const busquedaInput = document.getElementById("busqueda");
     busquedaInput.addEventListener("input", mostrarSugerencias);
-    busquedaInput.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscar(); }});
+    busquedaInput.addEventListener("keydown", e => { if(e.key==="Enter"){ e.preventDefault(); buscar(); }});
     document.getElementById("btnBuscar").addEventListener("click", buscar);
+
+    // ----------------------------
+    // Precarga ligera de PDFs para que las sugerencias funcionen desde el inicio
+    precargarPDFsInicial();
+    // ----------------------------
 
   } catch(err){
     document.getElementById("resultadoPDF").textContent = "Error al cargar carpetas.";
     console.error(err);
   }
 });
+
+// ----------------------------
+// Precarga ligera: solo nombres y carpetas para sugerencias
+async function precargarPDFsInicial(){
+  for(const f of folders){
+    fetchPDFs(f.id); // fetchPDFs guarda automáticamente en cachePDFs
+  }
+}
+// ----------------------------
 
 function construirSelectorJerarquico(){
   const filtrosDiv = document.getElementById("filtrosCarpetas");
@@ -98,17 +112,19 @@ function obtenerCarpetaSeleccionada(){
   return "";
 }
 
+// ----------------------------
+// Función para traer PDFs (solo nombre y carpeta), con cache
 async function fetchPDFs(folderId){
   if(cachePDFs[folderId] || loadingFolders[folderId]) return cachePDFs[folderId]||[];
-  loadingFolders[folderId] = true;
+  loadingFolders[folderId]=true;
   const res = await fetch(`/pdfs?folder_id=${folderId}`);
   const pdfs = await res.json();
-  if(!pdfs.error){
-    cachePDFs[folderId] = pdfs.map(p=>({...p, carpeta:folders.find(f=>f.id===folderId).path}));
-  } else cachePDFs[folderId] = [];
-  loadingFolders[folderId] = false;
+  if(!pdfs.error) cachePDFs[folderId]=pdfs.map(p=>({...p, carpeta:folders.find(f=>f.id===folderId).path}));
+  else cachePDFs[folderId]=[];
+  loadingFolders[folderId]=false;
   return cachePDFs[folderId];
 }
+// ----------------------------
 
 async function obtenerPDFsSegunFiltro(carpeta){
   if(carpeta){
@@ -121,7 +137,7 @@ async function obtenerPDFsSegunFiltro(carpeta){
     }
     return resultados;
   } else {
-    // Todas las carpetas: buscar PDFs de todas
+    // Todas las carpetas
     let resultados=[];
     for(const f of folders){
       const pdfs = await fetchPDFs(f.id);
@@ -139,7 +155,11 @@ async function mostrarSugerencias(){
   const filtrados = resultados.filter(p=>p.nombre.toLowerCase().includes(texto)).slice(0,10);
   const ul=document.getElementById("sugerencias");
   ul.innerHTML="";
-  filtrados.forEach(pdf=>{ const li=document.createElement("li"); li.innerHTML=`<button onclick="seleccionarSugerencia('${pdf.nombre}')">${pdf.nombre} — <small>${pdf.carpeta}</small></button>`; ul.appendChild(li); });
+  filtrados.forEach(pdf=>{ 
+    const li=document.createElement("li"); 
+    li.innerHTML=`<button onclick="seleccionarSugerencia('${pdf.nombre}')">${pdf.nombre} — <small>${pdf.carpeta}</small></button>`; 
+    ul.appendChild(li); 
+  });
 }
 
 function seleccionarSugerencia(nombre){
