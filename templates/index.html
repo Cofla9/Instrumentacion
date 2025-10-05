@@ -112,11 +112,8 @@
 <body>
   <div class="container">
     <h1>Información de Equipos</h1>
-    <div class="controls">
+    <div class="controls" id="filtrosCarpetas">
       <input type="text" id="busqueda" placeholder="Buscar PDF por nombre...">
-      <select id="filtroCarpeta">
-        <option value="">Todas las carpetas</option>
-      </select>
       <button onclick="buscar()">Buscar</button>
     </div>
     <ul id="sugerencias"></ul>
@@ -125,88 +122,122 @@
 
   <script>
     let folders = [];
-    let cachePDFs = {}; // {folderId: [pdfs]}
-    let allPDFs = [];   // PDFs combinados de todas las carpetas
+    let cachePDFs = {};
+    let allPDFs = [];
 
     document.addEventListener("DOMContentLoaded", async () => {
       try {
         const res = await fetch("/folders");
         folders = await res.json();
-
         if (folders.error) throw new Error(folders.error);
 
-        const filtro = document.getElementById("filtroCarpeta");
-        filtro.innerHTML = `<option value="">Todas las carpetas</option>`;
-        folders.forEach(f => {
-          const opt = document.createElement("option");
-          opt.value = f.id;
-          opt.textContent = f.path;
-          filtro.appendChild(opt);
-        });
-
+        construirSelectorJerarquico();
         document.getElementById("resultadoPDF").textContent = "Listo para buscar PDFs.";
-
         document.getElementById("busqueda").addEventListener("input", mostrarSugerencias);
-        document.getElementById("filtroCarpeta").addEventListener("change", mostrarSugerencias);
-
       } catch (err) {
         document.getElementById("resultadoPDF").textContent = "Error al cargar carpetas.";
         console.error(err);
       }
     });
 
+    function construirSelectorJerarquico() {
+      const filtrosDiv = document.getElementById("filtrosCarpetas");
+
+      const niveles = [{ id: "", label: "Todas las carpetas" }];
+      const raiz = document.createElement("select");
+      raiz.id = "nivel0";
+      raiz.innerHTML = `<option value="">Todas las carpetas</option>`;
+
+      // identificar carpetas raíz (las que no están dentro de otra)
+      const rootFolders = folders.filter(f => !folders.some(sub => sub.path.startsWith(f.path + "/")));
+      // alternativa: si tu estructura es al revés, usar esto:
+      // const rootFolders = folders.filter(f => !folders.some(parent => f.path.startsWith(parent.path + "/")));
+
+      folders.forEach(f => {
+        if (!f.path.includes("/")) {
+          const opt = document.createElement("option");
+          opt.value = f.id;
+          opt.textContent = f.path;
+          raiz.appendChild(opt);
+        }
+      });
+
+      raiz.addEventListener("change", e => {
+        eliminarSelectoresDesde(1);
+        if (e.target.value) crearSubnivel(e.target.value, 1);
+        mostrarSugerencias();
+      });
+
+      filtrosDiv.insertBefore(raiz, filtrosDiv.querySelector("button"));
+    }
+
+    function eliminarSelectoresDesde(nivel) {
+      let next;
+      while ((next = document.getElementById(`nivel${nivel}`))) {
+        next.remove();
+        nivel++;
+      }
+    }
+
+    function crearSubnivel(parentId, nivel) {
+      const parent = folders.find(f => f.id === parentId);
+      const subfolders = folders.filter(f => f.path.startsWith(parent.path + "/") && f.path.split("/").length === parent.path.split("/").length + 1);
+      if (!subfolders.length) return;
+
+      const sel = document.createElement("select");
+      sel.id = `nivel${nivel}`;
+      sel.innerHTML = `<option value="">Seleccionar subcarpeta</option>`;
+      subfolders.forEach(sf => {
+        const opt = document.createElement("option");
+        opt.value = sf.id;
+        opt.textContent = sf.path.split("/").pop();
+        sel.appendChild(opt);
+      });
+
+      sel.addEventListener("change", e => {
+        eliminarSelectoresDesde(nivel + 1);
+        if (e.target.value) crearSubnivel(e.target.value, nivel + 1);
+        mostrarSugerencias();
+      });
+
+      document.getElementById("filtrosCarpetas").insertBefore(sel, document.querySelector("button"));
+    }
+
+    function obtenerCarpetaSeleccionada() {
+      const selects = Array.from(document.querySelectorAll('[id^="nivel"]'));
+      for (let i = selects.length - 1; i >= 0; i--) {
+        if (selects[i].value) return selects[i].value;
+      }
+      return "";
+    }
+
     async function cargarPDFsDeTodasLasCarpetas() {
       if (allPDFs.length > 0) return allPDFs;
-      document.getElementById("resultadoPDF").textContent = "Cargando todos los PDFs...";
-
       const promesas = folders.map(async folder => {
         if (!cachePDFs[folder.id]) {
           const res = await fetch(`/pdfs?folder_id=${folder.id}`);
           const pdfs = await res.json();
-          if (!pdfs.error) {
-            cachePDFs[folder.id] = pdfs.map(p => ({ ...p, carpeta: folder.path }));
-          }
+          if (!pdfs.error) cachePDFs[folder.id] = pdfs.map(p => ({ ...p, carpeta: folder.path }));
         }
         return cachePDFs[folder.id] || [];
       });
-
       const resultados = await Promise.all(promesas);
       allPDFs = resultados.flat();
       return allPDFs;
     }
 
-    async function buscar() {
-      const texto = document.getElementById("busqueda").value.trim().toLowerCase();
-      const carpeta = document.getElementById("filtroCarpeta").value;
-      const div = document.getElementById("resultadoPDF");
-      div.textContent = "Buscando...";
-
-      try {
-        let resultados = await obtenerPDFsSegunFiltro(carpeta, true);
-        if (texto) {
-          resultados = resultados.filter(pdf => pdf.nombre.toLowerCase().includes(texto));
-        }
-        mostrarResultados(resultados);
-      } catch (err) {
-        div.textContent = "Error al buscar PDFs.";
-        console.error(err);
-      }
-    }
-
-    async function obtenerPDFsSegunFiltro(carpeta, incluirSubcarpetas = false) {
+    async function obtenerPDFsSegunFiltro(carpeta) {
       if (carpeta) {
-        // incluir subcarpetas
-        const subfolders = folders.filter(f => f.id === carpeta || f.path.startsWith(folders.find(ff => ff.id === carpeta).path + "/"));
+        const folderSel = folders.find(f => f.id === carpeta);
+        const subfolders = folders.filter(f => f.id === carpeta || f.path.startsWith(folderSel.path + "/"));
         let resultados = [];
-        for (const sub of subfolders) {
-          if (!cachePDFs[sub.id]) {
-            const res = await fetch(`/pdfs?folder_id=${sub.id}`);
+        for (const sf of subfolders) {
+          if (!cachePDFs[sf.id]) {
+            const res = await fetch(`/pdfs?folder_id=${sf.id}`);
             const pdfs = await res.json();
-            if (!pdfs.error) {
-              cachePDFs[sub.id] = pdfs.map(p => ({ ...p, carpeta: sub.path }));
-            }
+            if (!pdfs.error) cachePDFs[sf.id] = pdfs.map(p => ({ ...p, carpeta: sf.path }));
           }
-          resultados = resultados.concat(cachePDFs[sub.id] || []);
+          resultados = resultados.concat(cachePDFs[sf.id] || []);
         }
         return resultados;
       } else {
@@ -214,28 +245,33 @@
       }
     }
 
+    async function buscar() {
+      const texto = document.getElementById("busqueda").value.trim().toLowerCase();
+      const carpeta = obtenerCarpetaSeleccionada();
+      const div = document.getElementById("resultadoPDF");
+      div.textContent = "Buscando...";
+
+      let resultados = await obtenerPDFsSegunFiltro(carpeta);
+      if (texto) resultados = resultados.filter(pdf => pdf.nombre.toLowerCase().includes(texto));
+      mostrarResultados(resultados);
+    }
+
     async function mostrarSugerencias() {
       const texto = document.getElementById("busqueda").value.trim().toLowerCase();
-      const carpeta = document.getElementById("filtroCarpeta").value;
+      const carpeta = obtenerCarpetaSeleccionada();
       const ul = document.getElementById("sugerencias");
       ul.innerHTML = "";
 
       if (texto.length < 2) return;
 
-      try {
-        let resultados = await obtenerPDFsSegunFiltro(carpeta, true);
-        const filtrados = resultados
-          .filter(pdf => pdf.nombre.toLowerCase().includes(texto))
-          .slice(0, 10);
+      let resultados = await obtenerPDFsSegunFiltro(carpeta);
+      const filtrados = resultados.filter(pdf => pdf.nombre.toLowerCase().includes(texto)).slice(0, 10);
 
-        filtrados.forEach(pdf => {
-          const li = document.createElement("li");
-          li.innerHTML = `<button onclick="seleccionarSugerencia('${pdf.nombre}')">${pdf.nombre} — <small>${pdf.carpeta}</small></button>`;
-          ul.appendChild(li);
-        });
-      } catch (err) {
-        console.error(err);
-      }
+      filtrados.forEach(pdf => {
+        const li = document.createElement("li");
+        li.innerHTML = `<button onclick="seleccionarSugerencia('${pdf.nombre}')">${pdf.nombre} — <small>${pdf.carpeta}</small></button>`;
+        ul.appendChild(li);
+      });
     }
 
     function seleccionarSugerencia(nombre) {
