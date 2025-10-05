@@ -50,6 +50,12 @@
     button:hover {
       background: #3498db;
     }
+    .back-btn {
+      background: #95a5a6;
+    }
+    .back-btn:hover {
+      background: #7f8c8d;
+    }
     ul#sugerencias {
       list-style: none;
       margin: 0 auto;
@@ -124,6 +130,7 @@
     let folders = [];
     let cachePDFs = {};
     let allPDFs = [];
+    let nivelActual = 0;
 
     document.addEventListener("DOMContentLoaded", async () => {
       try {
@@ -143,27 +150,22 @@
     function construirSelectorJerarquico() {
       const filtrosDiv = document.getElementById("filtrosCarpetas");
 
-      const niveles = [{ id: "", label: "Todas las carpetas" }];
       const raiz = document.createElement("select");
       raiz.id = "nivel0";
       raiz.innerHTML = `<option value="">Todas las carpetas</option>`;
 
-      // identificar carpetas raíz (las que no están dentro de otra)
-      const rootFolders = folders.filter(f => !folders.some(sub => sub.path.startsWith(f.path + "/")));
-      // alternativa: si tu estructura es al revés, usar esto:
-      // const rootFolders = folders.filter(f => !folders.some(parent => f.path.startsWith(parent.path + "/")));
-
-      folders.forEach(f => {
-        if (!f.path.includes("/")) {
-          const opt = document.createElement("option");
-          opt.value = f.id;
-          opt.textContent = f.path;
-          raiz.appendChild(opt);
-        }
+      // Agregar solo carpetas raíz
+      const rootFolders = folders.filter(f => !f.path.includes("/"));
+      rootFolders.forEach(f => {
+        const opt = document.createElement("option");
+        opt.value = f.id;
+        opt.textContent = f.path;
+        raiz.appendChild(opt);
       });
 
       raiz.addEventListener("change", e => {
         eliminarSelectoresDesde(1);
+        nivelActual = 0;
         if (e.target.value) crearSubnivel(e.target.value, 1);
         mostrarSugerencias();
       });
@@ -177,11 +179,16 @@
         next.remove();
         nivel++;
       }
+      const btnBack = document.getElementById("btnBack");
+      if (btnBack) btnBack.remove();
     }
 
     function crearSubnivel(parentId, nivel) {
       const parent = folders.find(f => f.id === parentId);
-      const subfolders = folders.filter(f => f.path.startsWith(parent.path + "/") && f.path.split("/").length === parent.path.split("/").length + 1);
+      const subfolders = folders.filter(f =>
+        f.path.startsWith(parent.path + "/") &&
+        f.path.split("/").length === parent.path.split("/").length + 1
+      );
       if (!subfolders.length) return;
 
       const sel = document.createElement("select");
@@ -200,7 +207,31 @@
         mostrarSugerencias();
       });
 
-      document.getElementById("filtrosCarpetas").insertBefore(sel, document.querySelector("button"));
+      const filtrosDiv = document.getElementById("filtrosCarpetas");
+      filtrosDiv.insertBefore(sel, filtrosDiv.querySelector("button"));
+
+      // Agregar botón "Subir nivel"
+      if (!document.getElementById("btnBack")) {
+        const backBtn = document.createElement("button");
+        backBtn.id = "btnBack";
+        backBtn.textContent = "⬆️ Subir nivel";
+        backBtn.classList.add("back-btn");
+        backBtn.onclick = subirNivel;
+        filtrosDiv.insertBefore(backBtn, filtrosDiv.querySelector("button"));
+      }
+      nivelActual = nivel;
+    }
+
+    function subirNivel() {
+      if (nivelActual > 0) {
+        document.getElementById(`nivel${nivelActual}`).remove();
+        nivelActual--;
+        if (nivelActual === 0) {
+          const btn = document.getElementById("btnBack");
+          if (btn) btn.remove();
+        }
+        mostrarSugerencias();
+      }
     }
 
     function obtenerCarpetaSeleccionada() {
