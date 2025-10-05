@@ -114,7 +114,7 @@
     <h1>Información de Equipos</h1>
     <div class="controls" id="filtrosCarpetas">
       <input type="text" id="busqueda" placeholder="Buscar PDF por nombre...">
-      <button id="btnBuscar">Buscar</button>
+      <button onclick="buscar()">Buscar</button>
     </div>
     <ul id="sugerencias"></ul>
     <div id="resultadoPDF">Cargando carpetas...</div>
@@ -133,47 +133,25 @@
 
         construirSelectorJerarquico();
         document.getElementById("resultadoPDF").textContent = "Listo para buscar PDFs.";
-
-        // Eventos
         document.getElementById("busqueda").addEventListener("input", mostrarSugerencias);
-        document.getElementById("busqueda").addEventListener("keydown", e => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            buscar();
-          }
-        });
-        document.getElementById("btnBuscar").addEventListener("click", buscar);
-
-        // Carga inicial de PDFs básicos (para sugerencias desde el inicio)
-        precargarPDFs();
       } catch (err) {
         document.getElementById("resultadoPDF").textContent = "Error al cargar carpetas.";
         console.error(err);
       }
     });
 
-    // Precarga ligera: solo los primeros PDFs de cada carpeta
-    async function precargarPDFs() {
-      try {
-        const promesas = folders.slice(0, 5).map(async f => {
-          const res = await fetch(`/pdfs?folder_id=${f.id}`);
-          const pdfs = await res.json();
-          if (!pdfs.error) {
-            cachePDFs[f.id] = pdfs.map(p => ({ ...p, carpeta: f.path }));
-            allPDFs.push(...cachePDFs[f.id]);
-          }
-        });
-        await Promise.all(promesas);
-      } catch (err) {
-        console.warn("No se pudieron precargar los PDFs:", err);
-      }
-    }
-
     function construirSelectorJerarquico() {
       const filtrosDiv = document.getElementById("filtrosCarpetas");
+
+      const niveles = [{ id: "", label: "Todas las carpetas" }];
       const raiz = document.createElement("select");
       raiz.id = "nivel0";
       raiz.innerHTML = `<option value="">Todas las carpetas</option>`;
+
+      // identificar carpetas raíz (las que no están dentro de otra)
+      const rootFolders = folders.filter(f => !folders.some(sub => sub.path.startsWith(f.path + "/")));
+      // alternativa: si tu estructura es al revés, usar esto:
+      // const rootFolders = folders.filter(f => !folders.some(parent => f.path.startsWith(parent.path + "/")));
 
       folders.forEach(f => {
         if (!f.path.includes("/")) {
@@ -233,6 +211,21 @@
       return "";
     }
 
+    async function cargarPDFsDeTodasLasCarpetas() {
+      if (allPDFs.length > 0) return allPDFs;
+      const promesas = folders.map(async folder => {
+        if (!cachePDFs[folder.id]) {
+          const res = await fetch(`/pdfs?folder_id=${folder.id}`);
+          const pdfs = await res.json();
+          if (!pdfs.error) cachePDFs[folder.id] = pdfs.map(p => ({ ...p, carpeta: folder.path }));
+        }
+        return cachePDFs[folder.id] || [];
+      });
+      const resultados = await Promise.all(promesas);
+      allPDFs = resultados.flat();
+      return allPDFs;
+    }
+
     async function obtenerPDFsSegunFiltro(carpeta) {
       if (carpeta) {
         const folderSel = folders.find(f => f.id === carpeta);
@@ -248,9 +241,19 @@
         }
         return resultados;
       } else {
-        if (allPDFs.length === 0) await precargarPDFs();
-        return allPDFs;
+        return await cargarPDFsDeTodasLasCarpetas();
       }
+    }
+
+    async function buscar() {
+      const texto = document.getElementById("busqueda").value.trim().toLowerCase();
+      const carpeta = obtenerCarpetaSeleccionada();
+      const div = document.getElementById("resultadoPDF");
+      div.textContent = "Buscando...";
+
+      let resultados = await obtenerPDFsSegunFiltro(carpeta);
+      if (texto) resultados = resultados.filter(pdf => pdf.nombre.toLowerCase().includes(texto));
+      mostrarResultados(resultados);
     }
 
     async function mostrarSugerencias() {
@@ -275,17 +278,6 @@
       document.getElementById("busqueda").value = nombre;
       document.getElementById("sugerencias").innerHTML = "";
       buscar();
-    }
-
-    async function buscar() {
-      const texto = document.getElementById("busqueda").value.trim().toLowerCase();
-      const carpeta = obtenerCarpetaSeleccionada();
-      const div = document.getElementById("resultadoPDF");
-      div.textContent = "Buscando...";
-
-      let resultados = await obtenerPDFsSegunFiltro(carpeta);
-      if (texto) resultados = resultados.filter(pdf => pdf.nombre.toLowerCase().includes(texto));
-      mostrarResultados(resultados);
     }
 
     function mostrarResultados(resultados) {
