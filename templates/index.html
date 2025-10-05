@@ -50,13 +50,8 @@
             width: 100%;
             max-width: 120px;
         }
-        button:hover {
-            background: #3498db;
-        }
-        #resultadoPDF {
-            margin-top: 24px;
-            text-align: center;
-        }
+        button:hover { background: #3498db; }
+        #resultadoPDF { margin-top: 24px; text-align: center; }
         iframe {
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -71,9 +66,7 @@
             text-decoration: none;
             font-weight: bold;
         }
-        .pdf-link:hover {
-            text-decoration: underline;
-        }
+        .pdf-link:hover { text-decoration: underline; }
         @media (max-width: 600px) {
             .container { padding: 12px; margin: 10px; }
             iframe { height: 250px; }
@@ -93,6 +86,7 @@
 
     <script>
         let folders = [];
+        let cachePDFs = {}; // cachePDFs[folder_id] = [lista de PDFs]
 
         document.addEventListener('DOMContentLoaded', async () => {
             const res = await fetch('/folders');
@@ -115,7 +109,10 @@
 
         function populateFolderFilter() {
             const folderFilter = document.getElementById("filtroCarpeta");
-            folderFilter.innerHTML = '<option value="">Seleccione una carpeta</option>';
+            folderFilter.innerHTML = `
+                <option value="">Seleccione una carpeta</option>
+                <option value="all">🔍 Buscar en todas las carpetas cargadas</option>
+            `;
             folders.forEach(folder => {
                 const option = document.createElement("option");
                 option.value = folder.id;
@@ -131,23 +128,49 @@
             div.innerHTML = "Cargando...";
 
             if (!folderId) {
-                div.innerHTML = "Por favor selecciona una carpeta.";
+                div.innerHTML = "Por favor selecciona una carpeta o elige 'Buscar en todas'.";
                 return;
             }
 
-            const res = await fetch(`/pdfs?folder_id=${folderId}`);
-            const pdfs = await res.json();
+            let resultados = [];
 
-            if (pdfs.error) {
-                div.textContent = pdfs.error;
+            if (folderId === "all") {
+                // buscar en todas las carpetas ya cargadas (en cache)
+                const todas = Object.values(cachePDFs).flat();
+                resultados = todas.filter(pdf =>
+                    !busqueda || pdf.nombre.toLowerCase().includes(busqueda)
+                );
+                if (resultados.length === 0)
+                    div.innerHTML = "No hay PDFs cargados aún. Abre alguna carpeta primero.";
+                else
+                    mostrarResultados(resultados);
                 return;
             }
 
-            const filtrados = pdfs.filter(pdf =>
+            // si la carpeta no está cacheada, cargarla del servidor
+            if (!cachePDFs[folderId]) {
+                try {
+                    const res = await fetch(`/pdfs?folder_id=${folderId}`);
+                    const pdfs = await res.json();
+                    if (pdfs.error) {
+                        div.textContent = pdfs.error;
+                        return;
+                    }
+                    cachePDFs[folderId] = pdfs.map(p => ({
+                        ...p,
+                        carpeta: folders.find(f => f.id === folderId)?.path || 'Desconocida'
+                    }));
+                } catch (err) {
+                    div.textContent = "Error al cargar los PDFs.";
+                    return;
+                }
+            }
+
+            resultados = cachePDFs[folderId].filter(pdf =>
                 !busqueda || pdf.nombre.toLowerCase().includes(busqueda)
             );
 
-            mostrarResultados(filtrados);
+            mostrarResultados(resultados);
         }
 
         function mostrarResultados(resultados) {
@@ -158,6 +181,7 @@
                 resultados.forEach(pdf => {
                     div.innerHTML += `
                         <a class="pdf-link" href="${pdf.url}" target="_blank">${pdf.nombre}</a><br>
+                        <small>Carpeta: ${pdf.carpeta}</small><br>
                         <iframe src="${pdf.url}" width="100%" height="400"></iframe>
                         <br><br>
                     `;
