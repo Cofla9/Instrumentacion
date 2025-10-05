@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-selfcheck.json
+
+# Database
+database.db
+
+# Credentials
+credentials.json
+
+# IDE / Editor
+.vscode/
+.idea/
