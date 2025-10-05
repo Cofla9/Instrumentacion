@@ -54,6 +54,14 @@
         button:hover {
             background: #3498db;
         }
+        .search-block select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 250px;
+            box-sizing: border-box;
+        }
         #resultadoPDF {
             margin-top: 24px;
             text-align: center;
@@ -92,73 +100,108 @@
         <h1>Información de Equipos</h1>
         <div class="search-block">
             <input type="text" id="busqueda" placeholder="Nombre del PDF" autocomplete="off">
-            <button onclick="buscarPDF()">Buscar</button>
+            <select id="filtroCarpeta"></select>
+            <button onclick="filtrarResultados()">Buscar</button>
         </div>
         <ul id="sugerencias" style="list-style:none; padding:0; margin:0; text-align:center;"></ul>
         <div id="resultadoPDF"></div>
     </div>
     <script>
         let pdfs = [];
-        fetch('/pdfs')
-            .then(response => response.json())
-            .then(data => {
-                pdfs = data;
-                // Aquí puedes llamar a mostrarResultados("") para mostrar todos al cargar
-            });
+        let folders = [];
 
-        // Sugerencias en tiempo real
-        document.getElementById("busqueda").addEventListener("input", function() {
-            const texto = this.value.trim().toLowerCase();
+        document.addEventListener('DOMContentLoaded', () => {
+            fetch('/pdfs')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById("resultadoPDF").textContent = data.error;
+                        return;
+                    }
+                    pdfs = data.pdfs || [];
+                    folders = data.folders || [];
+                    populateFolderFilter();
+                    filtrarResultados(); // Opcional: Mostrar todos los PDFs al inicio
+                });
+
+            document.getElementById("busqueda").addEventListener("input", handleLiveSearch);
+            document.getElementById("filtroCarpeta").addEventListener("change", filtrarResultados);
+
+            document.getElementById("busqueda").addEventListener("keydown", function(event) {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    filtrarResultados();
+                }
+            });
+        });
+
+        function populateFolderFilter() {
+            const folderFilter = document.getElementById("filtroCarpeta");
+            folderFilter.innerHTML = '<option value="">Todas las carpetas</option>';
+            folders.forEach(folder => {
+                const option = document.createElement("option");
+                option.value = folder;
+                option.textContent = folder;
+                folderFilter.appendChild(option);
+            });
+        }
+
+        function handleLiveSearch() {
+            const texto = document.getElementById("busqueda").value.trim().toLowerCase();
+            const carpeta = document.getElementById("filtroCarpeta").value;
             const sugerencias = document.getElementById("sugerencias");
             sugerencias.innerHTML = "";
+
             if (texto.length > 0) {
-                const resultados = pdfs.filter(pdf => pdf.nombre.toLowerCase().includes(texto));
+                const resultados = pdfs.filter(pdf => {
+                    const coincideCarpeta = !carpeta || pdf.carpeta === carpeta;
+                    const coincideNombre = pdf.nombre.toLowerCase().includes(texto);
+                    return coincideCarpeta && coincideNombre;
+                });
+
                 resultados.forEach(pdf => {
                     const li = document.createElement("li");
-                    li.innerHTML = `<button style="background:none;border:none;color:#2980b9;cursor:pointer;font-size:1em;" onclick="mostrarPDF('${pdf.nombre}')">${pdf.nombre}</button>`;
+                    li.innerHTML = `<button style="background:none;border:none;color:#2980b9;cursor:pointer;font-size:1em;" onclick="seleccionarSugerencia('${pdf.nombre}')">${pdf.nombre}</button>`;
                     sugerencias.appendChild(li);
                 });
             }
-        });
-
-        // Buscar al presionar Enter
-        document.getElementById("busqueda").addEventListener("keydown", function(event) {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                buscarPDF();
-            }
-        });
-
-        function buscarPDF() {
-            const busqueda = document.getElementById("busqueda").value.trim().toLowerCase();
-            mostrarResultados(busqueda);
         }
 
-        function mostrarPDF(nombre) {
+        function seleccionarSugerencia(nombre) {
             document.getElementById("busqueda").value = nombre;
-            mostrarResultados(nombre.toLowerCase());
             document.getElementById("sugerencias").innerHTML = "";
+            filtrarResultados();
         }
 
-        function mostrarResultados(busqueda) {
+        function filtrarResultados() {
+            const busqueda = document.getElementById("busqueda").value.trim().toLowerCase();
+            const carpeta = document.getElementById("filtroCarpeta").value;
+            document.getElementById("sugerencias").innerHTML = "";
+
+            const resultados = pdfs.filter(pdf => {
+                const coincideCarpeta = !carpeta || pdf.carpeta === carpeta;
+                const coincideNombre = !busqueda || pdf.nombre.toLowerCase().includes(busqueda);
+                return coincideCarpeta && coincideNombre;
+            });
+
+            mostrarResultados(resultados);
+        }
+
+        function mostrarResultados(resultados) {
             const div = document.getElementById("resultadoPDF");
             div.innerHTML = "";
-            let resultados;
-            if (busqueda === "") {
-                resultados = pdfs;
-            } else {
-                resultados = pdfs.filter(pdf => pdf.nombre.toLowerCase().includes(busqueda));
-            }
+
             if (resultados.length > 0) {
                 resultados.forEach(resultado => {
                     div.innerHTML += `
                         <a class="pdf-link" href="${resultado.url}" target="_blank">${resultado.nombre} (PDF)</a><br>
+                        <small>Carpeta: ${resultado.carpeta || 'Raíz'}</small><br>
                         <iframe src="${resultado.url}" width="100%" height="400"></iframe>
                         <br><br>
                     `;
                 });
             } else {
-                div.textContent = "No se encontró ningún PDF con ese nombre.";
+                div.textContent = "No se encontró ningún PDF con esos criterios.";
             }
         }
     </script>
