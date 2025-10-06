@@ -1,198 +1,318 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Información de Equipos</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body { font-family: Arial, sans-serif; background: #f4f6f8; margin:0; padding:0; }
-.container { max-width: 750px; margin:40px auto; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); padding:30px; }
-h1 { text-align:center; color:#2c3e50; margin-bottom:25px; }
-.controls { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:10px; }
-input, select, button { padding:8px; border-radius:5px; border:1px solid #ccc; font-size:15px; }
-input, select { width:250px; }
-button { background:#2980b9; color:white; font-weight:bold; cursor:pointer; transition: background 0.2s; }
-button:hover { background:#3498db; }
-ul#sugerencias { list-style:none; margin:0 auto; padding:0; text-align:center; max-width:600px; }
-ul#sugerencias li { margin:4px 0; }
-ul#sugerencias button { background:none; border:none; color:#2980b9; cursor:pointer; font-size:1em; }
-ul#sugerencias button:hover { text-decoration:underline; }
-#resultadoPDF { margin-top:25px; text-align:center; }
-.pdf-card { margin-bottom:30px; border:1px solid #ddd; border-radius:6px; padding:15px; box-shadow:0 2px 4px rgba(0,0,0,0.05); }
-.pdf-card a { font-size:1.05em; color:#2980b9; text-decoration:none; font-weight:bold; }
-.pdf-card small { color:#555; display:block; margin-bottom:5px; }
-iframe { width:100%; height:400px; border:1px solid #ccc; border-radius:4px; margin-top:10px; }
-@media (max-width:600px){ input, select, button { width:100%; } iframe { height:250px; } }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buscador de PDFs - Información de Equipos</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      background: #f3f6fa;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 50px auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      padding: 30px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 25px;
+    }
+
+    .search-block {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      position: relative;
+    }
+
+    input[type="text"] {
+      padding: 10px 15px;
+      border: 1px solid #ccc;
+      border-radius: 25px;
+      width: 250px;
+      transition: all 0.2s ease;
+    }
+
+    input[type="text"]:focus {
+      border-color: #2980b9;
+      box-shadow: 0 0 6px rgba(41, 128, 185, 0.3);
+      outline: none;
+    }
+
+    select {
+      padding: 10px;
+      border-radius: 25px;
+      border: 1px solid #ccc;
+      width: 200px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border-radius: 25px;
+      border: none;
+      background: #2980b9;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    button:hover {
+      background: #3498db;
+    }
+
+    /* Dropdown de sugerencias */
+    #sugerencias {
+      position: absolute;
+      top: 45px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      width: 250px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      z-index: 100;
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    #sugerencias li {
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+      text-align: left;
+    }
+
+    #sugerencias li:hover {
+      background: #f0f0f0;
+    }
+
+    mark {
+      background: #fdf39d;
+      color: #333;
+      border-radius: 3px;
+    }
+
+    /* Tarjetas PDF */
+    .pdf-card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 25px;
+      transition: transform 0.15s;
+    }
+
+    .pdf-card:hover {
+      transform: translateY(-3px);
+    }
+
+    .pdf-card h3 {
+      margin: 0 0 8px;
+      color: #2980b9;
+    }
+
+    .pdf-card small {
+      color: #666;
+    }
+
+    iframe {
+      width: 100%;
+      height: 400px;
+      border: none;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        margin: 15px;
+        padding: 15px;
+      }
+      input,
+      select,
+      button {
+        width: 100%;
+      }
+      #sugerencias {
+        width: 100%;
+        left: 0;
+        transform: none;
+      }
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-<h1>Información de Equipos</h1>
-<div class="controls" id="filtrosCarpetas">
-<input type="text" id="busqueda" placeholder="Buscar PDF por nombre...">
-<button id="btnBuscar">Buscar</button>
-</div>
-<ul id="sugerencias"></ul>
-<div id="resultadoPDF">Cargando carpetas...</div>
-</div>
+  <div class="container">
+    <h1>Información de Equipos</h1>
+    <div class="search-block">
+      <input type="text" id="busqueda" placeholder="Nombre del PDF..." autocomplete="off" />
+      <select id="filtroCarpeta"></select>
+      <button id="btnBuscar">Buscar</button>
+      <ul id="sugerencias"></ul>
+    </div>
+    <div id="resultadoPDF" style="margin-top: 30px; text-align: center;"></div>
+  </div>
 
-<script>
-let folders = [];
-let cachePDFs = {};        // PDFs cargados por folder_id
-let loadingFolders = {};   // evita fetch duplicados
+  <script>
+    let folders = [];
+    let cachePDFs = {};
+    let allPDFs = [];
 
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    const res = await fetch("/folders");
-    folders = await res.json();
-    if(folders.error) throw new Error(folders.error);
+    document.addEventListener("DOMContentLoaded", async () => {
+      const filtroCarpeta = document.getElementById("filtroCarpeta");
+      const busquedaInput = document.getElementById("busqueda");
+      const sugerencias = document.getElementById("sugerencias");
+      const btnBuscar = document.getElementById("btnBuscar");
 
-    construirSelectorJerarquico();
-    document.getElementById("resultadoPDF").textContent = "Listo para buscar PDFs.";
+      try {
+        const res = await fetch("/folders");
+        folders = await res.json();
 
-    const busquedaInput = document.getElementById("busqueda");
-    busquedaInput.addEventListener("input", mostrarSugerencias);
-    busquedaInput.addEventListener("keydown", e => { if(e.key==="Enter"){ e.preventDefault(); buscar(); }});
-    document.getElementById("btnBuscar").addEventListener("click", buscar);
+        filtroCarpeta.innerHTML = '<option value="">Todas las carpetas</option>';
+        folders.forEach(f => {
+          const depth = f.path.split("/").length;
+          if (depth <= 2) { // solo mostrar las principales
+            const option = document.createElement("option");
+            option.value = f.id;
+            option.textContent = f.path;
+            filtroCarpeta.appendChild(option);
+          }
+        });
 
-    // ----------------------------
-    // Precarga ligera de PDFs para que las sugerencias funcionen desde el inicio
-    precargarPDFsInicial();
-    // ----------------------------
+        // Precarga inicial ligera
+        precargarPDFsInicial();
 
-  } catch(err){
-    document.getElementById("resultadoPDF").textContent = "Error al cargar carpetas.";
-    console.error(err);
-  }
-});
+        // Eventos
+        busquedaInput.addEventListener("input", mostrarSugerencias);
+        busquedaInput.addEventListener("keydown", e => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            buscar();
+          }
+        });
+        btnBuscar.addEventListener("click", buscar);
+        filtroCarpeta.addEventListener("change", buscar);
+      } catch (err) {
+        console.error("Error al cargar carpetas:", err);
+      }
+    });
 
-// ----------------------------
-// Precarga ligera: solo nombres y carpetas para sugerencias
-async function precargarPDFsInicial(){
-  for(const f of folders){
-    fetchPDFs(f.id); // fetchPDFs guarda automáticamente en cachePDFs
-  }
-}
-// ----------------------------
-
-function construirSelectorJerarquico(){
-  const filtrosDiv = document.getElementById("filtrosCarpetas");
-  const raiz = document.createElement("select");
-  raiz.id = "nivel0";
-  raiz.innerHTML = `<option value="">Todas las carpetas</option>`;
-  folders.forEach(f=>{ if(!f.path.includes("/")){ const opt=document.createElement("option"); opt.value=f.id; opt.textContent=f.path; raiz.appendChild(opt); }});
-  raiz.addEventListener("change", e=>{
-    eliminarSelectoresDesde(1);
-    if(e.target.value) crearSubnivel(e.target.value,1);
-    mostrarSugerencias();
-  });
-  filtrosDiv.insertBefore(raiz, filtrosDiv.querySelector("button"));
-}
-
-function eliminarSelectoresDesde(nivel){
-  let next;
-  while((next=document.getElementById(`nivel${nivel}`))){ next.remove(); nivel++; }
-}
-
-function crearSubnivel(parentId, nivel){
-  const parent = folders.find(f=>f.id===parentId);
-  const subfolders = folders.filter(f=>f.path.startsWith(parent.path+"/") && f.path.split("/").length===parent.path.split("/").length+1);
-  if(!subfolders.length) return;
-  const sel=document.createElement("select");
-  sel.id=`nivel${nivel}`;
-  sel.innerHTML=`<option value="">Seleccionar subcarpeta</option>`;
-  subfolders.forEach(sf=>{ const opt=document.createElement("option"); opt.value=sf.id; opt.textContent=sf.path.split("/").pop(); sel.appendChild(opt); });
-  sel.addEventListener("change", e=>{ eliminarSelectoresDesde(nivel+1); if(e.target.value) crearSubnivel(e.target.value,nivel+1); mostrarSugerencias(); });
-  document.getElementById("filtrosCarpetas").insertBefore(sel, document.querySelector("button"));
-}
-
-function obtenerCarpetaSeleccionada(){
-  const selects = Array.from(document.querySelectorAll('[id^="nivel"]'));
-  for(let i=selects.length-1;i>=0;i--){ if(selects[i].value) return selects[i].value; }
-  return "";
-}
-
-// ----------------------------
-// Función para traer PDFs (solo nombre y carpeta), con cache
-async function fetchPDFs(folderId){
-  if(cachePDFs[folderId] || loadingFolders[folderId]) return cachePDFs[folderId]||[];
-  loadingFolders[folderId]=true;
-  const res = await fetch(`/pdfs?folder_id=${folderId}`);
-  const pdfs = await res.json();
-  if(!pdfs.error) cachePDFs[folderId]=pdfs.map(p=>({...p, carpeta:folders.find(f=>f.id===folderId).path}));
-  else cachePDFs[folderId]=[];
-  loadingFolders[folderId]=false;
-  return cachePDFs[folderId];
-}
-// ----------------------------
-
-async function obtenerPDFsSegunFiltro(carpeta){
-  if(carpeta){
-    const folderSel = folders.find(f=>f.id===carpeta);
-    const subfolders = folders.filter(f=>f.id===carpeta || f.path.startsWith(folderSel.path+"/"));
-    let resultados=[];
-    for(const sf of subfolders){
-      const pdfs = await fetchPDFs(sf.id);
-      resultados = resultados.concat(pdfs);
+    async function precargarPDFsInicial() {
+      for (const f of folders) {
+        if (!cachePDFs[f.id]) fetchPDFs(f.id);
+      }
     }
-    return resultados;
-  } else {
-    // Todas las carpetas
-    let resultados=[];
-    for(const f of folders){
-      const pdfs = await fetchPDFs(f.id);
-      resultados = resultados.concat(pdfs);
+
+    async function fetchPDFs(folderId) {
+      try {
+        const res = await fetch(`/pdfs?folder_id=${folderId}`);
+        const data = await res.json();
+        if (data.error) return [];
+        const folder = folders.find(f => f.id === folderId);
+        cachePDFs[folderId] = data.map(p => ({ ...p, carpeta: folder.path }));
+        allPDFs = Object.values(cachePDFs).flat();
+        return cachePDFs[folderId];
+      } catch (e) {
+        console.error(e);
+        return [];
+      }
     }
-    return resultados;
-  }
-}
 
-async function mostrarSugerencias(){
-  const texto = document.getElementById("busqueda").value.trim().toLowerCase();
-  if(texto.length<2){ document.getElementById("sugerencias").innerHTML=""; return; }
-  const carpeta = obtenerCarpetaSeleccionada();
-  let resultados = await obtenerPDFsSegunFiltro(carpeta);
-  const filtrados = resultados.filter(p=>p.nombre.toLowerCase().includes(texto)).slice(0,10);
-  const ul=document.getElementById("sugerencias");
-  ul.innerHTML="";
-  filtrados.forEach(pdf=>{ 
-    const li=document.createElement("li"); 
-    li.innerHTML=`<button onclick="seleccionarSugerencia('${pdf.nombre}')">${pdf.nombre} — <small>${pdf.carpeta}</small></button>`; 
-    ul.appendChild(li); 
-  });
-}
+    async function buscar() {
+      const carpeta = document.getElementById("filtroCarpeta").value;
+      const texto = document.getElementById("busqueda").value.trim().toLowerCase();
+      const contenedor = document.getElementById("resultadoPDF");
+      sugerencias.style.display = "none";
 
-function seleccionarSugerencia(nombre){
-  document.getElementById("busqueda").value=nombre;
-  document.getElementById("sugerencias").innerHTML="";
-  buscar();
-}
+      contenedor.innerHTML = "<p>Cargando resultados...</p>";
 
-async function buscar(){
-  const texto=document.getElementById("busqueda").value.trim().toLowerCase();
-  const carpeta = obtenerCarpetaSeleccionada();
-  const div = document.getElementById("resultadoPDF");
-  div.textContent="Buscando...";
-  let resultados = await obtenerPDFsSegunFiltro(carpeta);
-  if(texto) resultados = resultados.filter(p=>p.nombre.toLowerCase().includes(texto));
-  mostrarResultados(resultados);
-}
+      let resultados = [];
 
-function mostrarResultados(resultados){
-  const div=document.getElementById("resultadoPDF");
-  div.innerHTML="";
-  if(!resultados.length){ div.textContent="No se encontraron resultados."; return; }
-  resultados.forEach(pdf=>{
-    const card=document.createElement("div");
-    card.className="pdf-card";
-    card.innerHTML=`
-      <a href="${pdf.url}" target="_blank">${pdf.nombre}</a>
-      <small>Carpeta: ${pdf.carpeta}</small>
-      <iframe src="${pdf.url}"></iframe>
-    `;
-    div.appendChild(card);
-  });
-}
-</script>
+      if (carpeta) {
+        if (!cachePDFs[carpeta]) await fetchPDFs(carpeta);
+        resultados = cachePDFs[carpeta];
+      } else {
+        if (allPDFs.length === 0) {
+          await Promise.all(folders.map(f => fetchPDFs(f.id)));
+        }
+        resultados = allPDFs;
+      }
+
+      if (texto) {
+        resultados = resultados.filter(p =>
+          p.nombre.toLowerCase().includes(texto)
+        );
+      }
+
+      mostrarResultados(resultados);
+    }
+
+    function mostrarResultados(resultados) {
+      const contenedor = document.getElementById("resultadoPDF");
+      contenedor.innerHTML = "";
+      if (resultados.length === 0) {
+        contenedor.textContent = "No se encontraron resultados.";
+        return;
+      }
+
+      resultados.forEach(p => {
+        contenedor.innerHTML += `
+          <div class="pdf-card">
+            <h3>${p.nombre}</h3>
+            <small>Carpeta: ${p.carpeta || "Raíz"}</small><br>
+            <a href="${p.url}" target="_blank">Abrir en Google Drive</a>
+            <iframe src="${p.url}" loading="lazy"></iframe>
+          </div>
+        `;
+      });
+    }
+
+    function mostrarSugerencias() {
+      const texto = document.getElementById("busqueda").value.trim().toLowerCase();
+      const carpeta = document.getElementById("filtroCarpeta").value;
+      const lista = document.getElementById("sugerencias");
+      lista.innerHTML = "";
+
+      if (!texto) {
+        lista.style.display = "none";
+        return;
+      }
+
+      let base = carpeta ? cachePDFs[carpeta] || [] : allPDFs;
+
+      const resultados = base.filter(p => p.nombre.toLowerCase().includes(texto)).slice(0, 10);
+      if (resultados.length === 0) {
+        lista.style.display = "none";
+        return;
+      }
+
+      const regex = new RegExp(`(${texto})`, "gi");
+      resultados.forEach(p => {
+        const li = document.createElement("li");
+        li.innerHTML = `${p.nombre.replace(regex, "<mark>$1</mark>")} <small>(${p.carpeta || "Raíz"})</small>`;
+        li.onclick = () => {
+          document.getElementById("busqueda").value = p.nombre;
+          lista.style.display = "none";
+          buscar();
+        };
+        lista.appendChild(li);
+      });
+
+      lista.style.display = "block";
+    }
+  </script>
 </body>
 </html>
